@@ -91,7 +91,6 @@ def list_tasks(message):
     filtered_tasks = tasks[user_id]
     if category_filter:
         filtered_tasks = [t for t in filtered_tasks if t["category"].lower() == category_filter]
-
     if not filtered_tasks:
         bot.send_message(user_id, "🔍 В этой категории пока нет задач.")
         return
