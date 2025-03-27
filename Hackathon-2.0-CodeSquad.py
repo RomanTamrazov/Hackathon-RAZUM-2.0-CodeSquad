@@ -3,7 +3,7 @@ import random
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import time
 import datetime
-import schedule
+import threading
 import pytz
 TOKEN = "8065173763:AAGh3SQyqxTslMB80V8o0TZH257K-0_H7BU"
 bot = telebot.TeleBot(TOKEN)
@@ -25,8 +25,8 @@ MOTIVATIONAL_QUOTES = [
     "Не сравнивай себя с другими – сравнивай себя с собой вчерашним.",
      "Успех любит настойчивых – продолжай двигаться вперёд!"
 ]
-
 moscow_tz = pytz.timezone("Europe/Moscow")
+#------------------------
 def get_moscow_time():
     return datetime.datetime.now(moscow_tz).strftime("%H:%M")
 now = get_moscow_time()
@@ -39,15 +39,14 @@ def main_menu():
     return keyboard
 #------------------------
 def check_reminders():
-    current_time = get_moscow_time()
-    for user_id, user_tasks in tasks.items():
-        for task in user_tasks:
-            if not task["done"] and task["time"] == current_time:
-                bot.send_message(user_id, f"⏰ Напоминание! {task['category']} {task['text']}")
-schedule.every().minute.do(check_reminders)
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+    while True:
+        current_time = get_moscow_time()
+        for user_id in tasks:
+            for task in tasks[user_id]:
+                if not task["done"] and task["time"] == current_time:
+                    bot.send_message(user_id, f"⏰ Напоминание! {task['categoty']} {task['text']}")
+        time.sleep(60)
+threading.Thread(target=check_reminders, daemon=True).start()
 #------------------------------
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -63,8 +62,8 @@ def motivate(message):
 def add_task(message):
     user_id = message.chat.id
     try:
-        parts = message.text.split(" / ", maxsplit=3)
-        if len(parts) < 3:
+        parts = message.text.split("/", maxsplit=3)
+        if len(parts) < 4:
             raise ValueError("Недостаточно аргументов")
         category, task_text, time_str = parts[1].strip(), parts[2].strip(), parts[3].strip()
         tasks[user_id].append({"category": category, "text": task_text, "time": time_str, "done": False, "important": False})
@@ -92,6 +91,7 @@ def list_tasks(message):
     filtered_tasks = tasks[user_id]
     if category_filter:
         filtered_tasks = [t for t in filtered_tasks if t["category"].lower() == category_filter]
+
     if not filtered_tasks:
         bot.send_message(user_id, "🔍 В этой категории пока нет задач.")
         return
