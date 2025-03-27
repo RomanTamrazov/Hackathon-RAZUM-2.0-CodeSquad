@@ -3,7 +3,7 @@ import random
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import time
 import datetime
-import threading
+import schedule
 import pytz
 TOKEN = "8065173763:AAGh3SQyqxTslMB80V8o0TZH257K-0_H7BU"
 bot = telebot.TeleBot(TOKEN)
@@ -39,15 +39,15 @@ def main_menu():
     return keyboard
 #------------------------
 def check_reminders():
-    while True:
-        current_time = get_moscow_time()
-        for user_id in tasks:
-            for task in tasks[user_id]:
-                if not task["done"] and task["time"] == current_time:
-                    bot.send_message(user_id, f"⏰ Напоминание! {task['categoty']} {task['text']}")
-        time.sleep(60)
-
-threading.Thread(target=check_reminders, daemon=True).start()
+    current_time = get_moscow_time()
+    for user_id, user_tasks in tasks.items():
+        for task in user_tasks:
+            if not task["done"] and task["time"] == current_time:
+                bot.send_message(user_id, f"⏰ Напоминание! {task['category']} {task['text']}")
+schedule.every().minute.do(check_reminders)
+while True:
+    schedule.run_pending()
+    time.sleep(1)
 #------------------------------
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -63,8 +63,8 @@ def motivate(message):
 def add_task(message):
     user_id = message.chat.id
     try:
-        parts = message.text.split("/", maxsplit=3)
-        if len(parts) < 4:
+        parts = message.text.split(" / ", maxsplit=3)
+        if len(parts) < 3:
             raise ValueError("Недостаточно аргументов")
         category, task_text, time_str = parts[1].strip(), parts[2].strip(), parts[3].strip()
         tasks[user_id].append({"category": category, "text": task_text, "time": time_str, "done": False, "important": False})
@@ -78,7 +78,6 @@ def show_categories(message):
     if user_id not in tasks or not tasks[user_id]:
         bot.send_message(user_id, "📭 У тебя пока что нет задач.")
         return
-    
     categories = set(task["category"] for task in tasks[user_id])
     bot.send_message(user_id, "📂 *Твои категории:*\n" + "\n".join(f"🔹 {c}" for c in categories), parse_mode="Markdown")
 #-------------------------------
@@ -87,21 +86,16 @@ def list_tasks(message):
     user_id = message.chat.id
     args = message.text.split(maxsplit=1)
     category_filter = args[1].strip().lower() if len(args) > 1 else None
-
     if user_id not in tasks or not tasks[user_id]:
         bot.send_message(user_id, "📭 У тебя пока что нет задач.")
         return
-
     filtered_tasks = tasks[user_id]
     if category_filter:
         filtered_tasks = [t for t in filtered_tasks if t["category"].lower() == category_filter]
-
     if not filtered_tasks:
         bot.send_message(user_id, "🔍 В этой категории пока нет задач.")
         return
-    
     filtered_tasks.sort(key=lambda x: not x["important"])
-
     task_list = "\n".join([
         f"{i+1}. {'🔥' if t['important'] else ''} [{t['category']}] {t['text']} в {t['time']} {'✅' if t['done'] else '⏳'}"
         for i, t in enumerate(filtered_tasks)
