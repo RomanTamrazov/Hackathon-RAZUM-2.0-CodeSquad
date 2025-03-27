@@ -10,36 +10,64 @@ MOTIVATIONAL_QUOTES = [
     "Только те, кто рискуют идти слишком далеко, могут узнать, как далеко они могут зайти!",
     "Делай сегодня то, что другие не хотят, завтра будешь жить так, как другие не могут!"
 ]
-#-----------------------------
+#------------------------
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.chat.id
     tasks[user_id] = tasks.get(user_id, [])
     bot.send_message(user_id, "Привет! Я твой школьный планировщик.📅\nДля помощи с командами напиши - /help")
-
+#------------------------
 @bot.message_handler(commands=['motivate'])
 def motivate(message):
     bot.send_message(message.chat.id, f"💪 {random.choice(MOTIVATIONAL_QUOTES)}")
-#-------------------------------
+#------------------------
 @bot.message_handler(commands=['add'])
 def add_task(message):
     user_id = message.chat.id
     try:
-        _, category, task_text, time_str = message.text.split("/", maxsplit=3)
-        tasks[user_id].append({"category": category.strip(), "text": task_text.strip(), "time": time_str.strip(), "done": False})
-        bot.send_message(user_id, f"✅ Добавлена задача в категорию {category.strip()} - {task_text.strip()} в {time_str.strip()}")
+        parts = message.text.split("/", maxsplit=3)
+        if len(parts) < 4:
+            raise ValueError("Недостаточно аргументов")
+        category, task_text, time_str = parts[1].strip(), parts[2].strip(), parts[3].strip()
+        tasks[user_id].append({"category": category, "text": task_text, "time": time_str, "done": False})
+        bot.send_message(user_id, f"✅ Добавлена задача в категорию {category} - {task_text} в {time_str}")
     except:
-        bot.send_message(user_id, "⚠️ Ошибка! Используй формат: /add Категория / Задача / ЧАС:МИН")
-#-------------------------------
+        bot.send_message(user_id, "⚠️ Ошибка! Неправильный ввод.")
+#------------------------
+@bot.message_handler(commands=['categories'])
+def show_categories(message):
+    user_id = message.chat.id
+    if user_id not in tasks or not tasks[user_id]:
+        bot.send_message(user_id, "📭 У тебя пока что нет задач.")
+        return
+    
+    categories = set(task["category"] for task in tasks[user_id])
+    bot.send_message(user_id, "📂 *Твои категории:*\n" + "\n".join(f"🔹 {c}" for c in categories), parse_mode="Markdown")
+#-------------------------
 @bot.message_handler(commands=['list'])
 def list_tasks(message):
     user_id = message.chat.id
-    if user_id in tasks and tasks[user_id]:
-        task_list = "\n".join([f"{i+1}. [{t['category']}] {t['text']} в {t['time']} {'✅' if t['done'] else '⏳'}" for i, t in enumerate(tasks[user_id])])
-        bot.send_message(user_id, f"📋 Твои задачи:\n{task_list}")
-    else:
+    args = message.text.split(maxsplit=1)
+    category_filter = args[1].strip().lower() if len(args) > 1 else None
+
+    if user_id not in tasks or not tasks[user_id]:
         bot.send_message(user_id, "📭 У тебя пока что нет задач.")
-#---------------------------
+        return
+
+    filtered_tasks = tasks[user_id]
+    if category_filter:
+        filtered_tasks = [t for t in filtered_tasks if t["category"].lower() == category_filter]
+
+    if not filtered_tasks:
+        bot.send_message(user_id, "🔍 В этой категории пока нет задач.")
+        return
+
+    task_list = "\n".join([
+        f"{i+1}. [{t['category']}] {t['text']} в {t['time']} {'✅' if t['done'] else '⏳'}"
+        for i, t in enumerate(filtered_tasks)
+    ])
+    bot.send_message(user_id, f"📋 *Твои задачи:*\n{task_list}", parse_mode="Markdown")
+#-------------------------
 @bot.message_handler(commands=['done'])
 def mark_done(message):
     user_id = message.chat.id
@@ -52,7 +80,7 @@ def mark_done(message):
             bot.send_message(user_id, "⚠️ Неверный номер задачи.")
     except:
         bot.send_message(user_id, "⚠️ Используй: /done [номер задачи]")
-#--------------------------
+#-------------------------
 @bot.message_handler(commands=['delete'])
 def delete_task(message):
     user_id = message.chat.id
@@ -65,10 +93,9 @@ def delete_task(message):
             bot.send_message(user_id, "⚠️ Неверный номер задачи.")
     except:
         bot.send_message(user_id, "⚠️ Используй: /delete [номер задачи]")
-#---------------------------
+#------------------------
 @bot.message_handler(commands=['calendar'])
 def show_calendar(message):
-    """Показывает задачи в формате календаря"""
     user_id = message.chat.id
     if user_id not in tasks or not tasks[user_id]:
         bot.send_message(user_id, "📭 У тебя нет задач.")
@@ -81,13 +108,15 @@ def show_calendar(message):
     ])
     
     bot.send_message(user_id, f"📅 *Твой календарь задач:*\n{calendar_view}", parse_mode="Markdown")
-#---------------------------
+#--------------------------
 @bot.message_handler(commands=['help'])
 def help_command(message):
     bot.send_message(message.chat.id, """
 📌 *Команды:*
-/add Категория / Задача / ЧАС:МИН - добавить задачу
+/add Категория / Задача / ЧАС:МИНУТЫ - добавить задачу
 /list - показать задачи
+/list [категория] - показать задачи в категориях
+/categories - показать все категории
 /done [номер] - отметить выполненной ✅
 /delete [номер] - удалить задачу ❌
 /calendar - показать календарь 📅
