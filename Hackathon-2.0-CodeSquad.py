@@ -65,7 +65,7 @@ def add_task(message):
         parts = message.text.split("/", maxsplit=3)
         if len(parts) < 4:
             raise ValueError("Недостаточно аргументов")
-        category, task_text, time_str = parts[1].strip(), parts[2].strip(), parts[3].strip()
+        category, task_text, time_str = parts[1][3:].strip(), parts[2].strip(), parts[3].strip()
         tasks[user_id].append({"category": category, "text": task_text, "time": time_str, "done": False, "important": False})
         bot.send_message(user_id, f"✅ Добавлена задача в категорию {category} - {task_text} в {time_str}")
     except:
