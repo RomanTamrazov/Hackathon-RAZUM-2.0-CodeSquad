@@ -69,7 +69,7 @@ def add_task(message):
         tasks[user_id].append({"category": category, "text": task_text, "time": time_str, "done": False, "important": False})
         bot.send_message(user_id, f"✅ Добавлена задача в категорию {category} - {task_text} в {time_str}")
     except:
-        bot.send_message(user_id, "⚠️ Ошибка! Используй: Категория / Задача / Час:Минуты ")
+        bot.send_message(user_id, "⚠️ Ошибка! Используй: Категория/Задача/Час:Минуты ")
 #-------------------------------
 @bot.message_handler(commands=['categories'])
 def show_categories(message):
